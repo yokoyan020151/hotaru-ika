@@ -3,8 +3,10 @@
 # ======================================================
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from routers.proposals import router as proposals_router
 
 app = FastAPI()
+app.include_router(proposals_router)
 
 # --- CORS設定：Next.js（localhost:3000）からのアクセスを許可 ---
 app.add_middleware(
