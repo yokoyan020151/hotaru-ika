@@ -226,3 +226,63 @@ CREATE INDEX idx_skills_name            ON kaonavi_skills(skill_name);
 CREATE INDEX idx_attendees_meeting      ON google_calendar_attendees(meeting_id);
 CREATE INDEX idx_slack_user             ON slack_channel_memberships(user_id);
 CREATE INDEX idx_users_department       ON users(department);
+
+-- ==========================================================
+-- 配置案・通知テーブル（F-03/F-04 の成果物を保存）
+-- 対応するSQLAlchemyモデル: backend/models/proposal.py
+-- ==========================================================
+
+-- 実行順序: proposals（親）→ proposal_items / notifications（子）
+
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS proposal_items;
+DROP TABLE IF EXISTS proposals;
+
+
+-- ----------------------------------------------------------
+-- proposals: 配置案ヘッダ（1回の診断につき1レコード）
+-- ----------------------------------------------------------
+CREATE TABLE proposals (
+    proposal_id     TEXT PRIMARY KEY,               -- UUID
+    target_user_id  TEXT NOT NULL,                  -- 休職・時短対象者
+    status          TEXT NOT NULL DEFAULT 'draft',  -- draft=下書き / approved=承認済
+    ai_comment      TEXT,                           -- LLM生成の総評
+    ai_model        TEXT,                           -- 使用モデル名（監査用）
+    created_at      TEXT,                           -- 診断実行日時
+    approved_at     TEXT,                           -- 承認日時（未承認はNULL）
+    FOREIGN KEY (target_user_id) REFERENCES users(user_id),
+    CHECK (status IN ('draft', 'approved'))
+);
+
+
+-- ----------------------------------------------------------
+-- proposal_items: 配置案明細（業務1件ごとの引き継ぎ先）
+-- ----------------------------------------------------------
+CREATE TABLE proposal_items (
+    item_id                     TEXT PRIMARY KEY,   -- UUID
+    proposal_id                 TEXT NOT NULL,
+    task_id                     TEXT NOT NULL,
+    assignee_user_id            TEXT NOT NULL,      -- 引き継ぎ先
+    reason                      TEXT,               -- LLM生成の理由文
+    is_modified                 INTEGER DEFAULT 0,  -- 0=AI案のまま / 1=上司が手修正
+    needs_training              INTEGER DEFAULT 0,  -- 1=スキル移管が必要（属人業務）
+    involvement_score_snapshot  INTEGER,            -- 診断時点の関与スコア（1-3）
+    capacity_snapshot           REAL,               -- 診断時点の残余力（時間）
+    FOREIGN KEY (proposal_id) REFERENCES proposals(proposal_id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(task_id),
+    FOREIGN KEY (assignee_user_id) REFERENCES users(user_id)
+);
+
+
+-- ----------------------------------------------------------
+-- notifications: 通知（承認時に宛先ごとに生成）
+-- ----------------------------------------------------------
+CREATE TABLE notifications (
+    notification_id     TEXT PRIMARY KEY,   -- UUID
+    proposal_id         TEXT NOT NULL,
+    recipient_user_id   TEXT NOT NULL,      -- 通知の宛先
+    body                TEXT NOT NULL,      -- 通知本文（匿名IDから実名復元済）
+    sent_at             TEXT,               -- 生成日時
+    FOREIGN KEY (proposal_id) REFERENCES proposals(proposal_id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_user_id) REFERENCES users(user_id)
+);
