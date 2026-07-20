@@ -8,6 +8,7 @@ export default function Proposals() {
   const [proposal, setProposal] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [members, setMembers] = useState<any[]>([]);  // ★ メンバー一覧の箱
 
   // ★ 追加①：ページを開いた時、メンバー一覧を取ってくる
@@ -28,6 +29,19 @@ export default function Proposals() {
       alert("診断に失敗しました。バックエンドが起動しているか確認してください。");
     } finally {
       setLoading(false);
+    }
+  };
+  // デモ用：データを初期状態に戻す
+  const resetDemo = async () => {
+    setResetting(true);
+    try {
+      await fetch(`${API}/api/dev/reset`, { method: "POST" });
+      setProposal(null);   // 画面をまっさらに戻す
+      alert("デモデータを初期状態に戻しました");
+    } catch (e) {
+      alert("リセットに失敗しました");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -63,6 +77,11 @@ export default function Proposals() {
 
       <button onClick={diagnose} disabled={loading} style={{ padding: "8px 16px", fontSize: 16 }}>
         {loading ? "診断中..." : "佐藤さんの配置案を作る"}
+      </button>
+      
+      <button onClick={resetDemo} disabled={resetting}
+        style={{ marginLeft: 12, padding: "8px 16px", fontSize: 14 }}>
+        {resetting ? "リセット中..." : "デモをリセット"}
       </button>
 
       {proposal && (

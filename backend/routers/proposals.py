@@ -7,6 +7,7 @@ from models.proposal import Proposal, ProposalItem, Notification
 from services.allocation import run_diagnosis
 from services.reason_llm import generate_reasons
 from pydantic import BaseModel
+import os, sys, subprocess
 
 router = APIRouter()
 
@@ -162,3 +163,13 @@ def update_item(proposal_id: str, item_id: str, payload: ItemUpdate,
     db.commit()
 
     return build_response(db, proposal_id)
+
+@router.post("/api/dev/reset")
+def dev_reset():
+    """デモ用：seed.pyを実行してデータを初期状態に戻す（開発用）"""
+    backend_dir = os.path.dirname(os.path.dirname(__file__))  # このファイルの2つ上 = backend/
+    try:
+        subprocess.run([sys.executable, "seed.py"], cwd=backend_dir, check=True)
+    except Exception:
+        raise HTTPException(500, "リセットに失敗しました")
+    return {"message": "デモデータを初期状態に戻しました"}
