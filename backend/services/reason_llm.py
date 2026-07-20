@@ -60,10 +60,15 @@ def generate_reasons(diag):
         if any(w in t for t in texts for w in FORBIDDEN):
             return _fallback(diag)
 
-        # 割当なしの業務も含めて、順番通りに理由文を並べ直す
+        # --- 復元: M1 などの記号を本名に戻す ---
+        rev = {sym: name for name, sym in names.items()}
+        texts = [__import__("functools").reduce(lambda s, kv: s.replace(kv[0], kv[1]), rev.items(), t)
+                 for t in texts]
+
+        # 割当なしの業務も含めて、順番通りに並べ直す
         it_texts = iter(texts)
         result = [next(it_texts) if it["assignee"] else "候補者がいないため要検討"
                   for it in diag["items"]]
         return {"texts": result, "model": "gpt-4o-mini"}
     except Exception:
-        return _fallback(diag)     # 失敗しても診断は止めない
+        return _fallback(diag)
