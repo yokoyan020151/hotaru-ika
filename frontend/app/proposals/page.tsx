@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";  // ★ useEffect を追加
+import { useEffect, useState } from "react";
 
 const TARGET_ID = "038674dd-336a-4a6a-9068-b93dd2bfdfd2"; // 佐藤 美咲
 const API = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -9,10 +9,9 @@ export default function Proposals() {
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [targetId, setTargetId] = useState(TARGET_ID); // 診断対象。初期値は佐藤さん
-  const [members, setMembers] = useState<any[]>([]);  // ★ メンバー一覧の箱
+  const [targetId, setTargetId] = useState(TARGET_ID);
+  const [members, setMembers] = useState<any[]>([]);
 
-  // ★ 追加①：ページを開いた時、メンバー一覧を取ってくる
   useEffect(() => {
     fetch(`${API}/api/members`)
       .then((res) => res.json())
@@ -37,12 +36,12 @@ export default function Proposals() {
       setLoading(false);
     }
   };
-  // デモ用：データを初期状態に戻す
+
   const resetDemo = async () => {
     setResetting(true);
     try {
       await fetch(`${API}/api/dev/reset`, { method: "POST" });
-      setProposal(null);   // 画面をまっさらに戻す
+      setProposal(null);
       alert("デモデータを初期状態に戻しました");
     } catch (e) {
       alert("リセットに失敗しました");
@@ -51,7 +50,6 @@ export default function Proposals() {
     }
   };
 
-  // ★ 追加②：上司が担当を変える（手修正）
   const changeAssignee = async (itemId: string, newUserId: string) => {
     if (!proposal) return;
     const res = await fetch(`${API}/api/proposals/${proposal.proposal_id}/items/${itemId}`, {
@@ -78,83 +76,95 @@ export default function Proposals() {
   };
 
   return (
-    <main style={{ padding: 40, maxWidth: 800 }}>
-      <h1>Takusu 配置提案（F-03 / F-04）</h1>
+    <main className="mx-auto max-w-3xl p-8">
+      <h1 className="text-2xl font-bold text-gray-900">Takusu 配置提案（F-03 / F-04）</h1>
 
-      <button onClick={diagnose} disabled={loading} style={{ padding: "8px 16px", fontSize: 16 }}>
-        {loading ? "診断中..." : "配置案を作る"}
-      </button>
-      <div style={{ margin: "16px 0" }}>
+      {/* ⚠️ デモ用の対象選択。本番では target_user_id は上流からURL経由で渡ってくる想定。
+          結合時はホタルイカ班と受け渡し方法を要相談。 */}
+      <div className="my-4 text-sm text-gray-700">
         対象メンバー：{" "}
-        <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+        <select
+          value={targetId}
+          onChange={(e) => setTargetId(e.target.value)}
+          className="rounded border border-gray-300 px-2 py-1"
+        >
           {members.map((m) => (
             <option key={m.user_id} value={m.user_id}>{m.name}</option>
           ))}
         </select>
       </div>
-      <button onClick={resetDemo} disabled={resetting}
-        style={{ marginLeft: 12, padding: "8px 16px", fontSize: 14 }}>
-        {resetting ? "リセット中..." : "デモをリセット"}
-      </button>
+
+      <div className="flex gap-3">
+        <button onClick={diagnose} disabled={loading}
+          className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          {loading ? "診断中..." : "配置案を作る"}
+        </button>
+        <button onClick={resetDemo} disabled={resetting}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+          {resetting ? "リセット中..." : "デモをリセット"}
+        </button>
+      </div>
 
       {proposal && (
-        <section style={{ marginTop: 24 }}>
-          <h2>{proposal.target_user_name}さんの不在プラン</h2>
-          <p style={{ color: "#555" }}>{proposal.ai_comment}</p>
+        <section className="mt-8">
+          <h2 className="text-xl font-semibold text-gray-900">{proposal.target_user_name}さんの不在プラン</h2>
+          <p className="mt-1 text-gray-500">{proposal.ai_comment}</p>
 
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <ul className="mt-4 space-y-3">
             {proposal.items.map((item: any) => (
-              <li key={item.item_id} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-                <strong>{item.task_name}</strong>
+              <li key={item.item_id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <strong className="text-gray-900">{item.task_name}</strong>
+                  {item.needs_training && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">⚠️ スキル移管が必要</span>
+                  )}
+                </div>
 
-                {/* ★ 追加③：担当をドロップダウンに（承認前だけ変更可） */}
-                <div style={{ marginTop: 8 }}>
+                <div className="mt-2 text-sm text-gray-700">
                   担当 →{" "}
                   {proposal.status === "draft" ? (
                     <select
                       value={item.assignee_user_id}
                       onChange={(e) => changeAssignee(item.item_id, e.target.value)}
+                      className="rounded border border-gray-300 px-2 py-1"
                     >
                       {members.map((m) => (
                         <option key={m.user_id} value={m.user_id}>{m.name}</option>
                       ))}
                     </select>
                   ) : (
-                    item.assignee_name
+                    <span className="font-medium">{item.assignee_name}</span>
                   )}
-                  {item.is_modified && (
-                    <span style={{ color: "#2563eb", fontSize: 13, marginLeft: 8 }}>（上司修正）</span>
-                  )}
+                  {item.is_modified && <span className="ml-2 text-xs text-blue-600">（上司修正）</span>}
                 </div>
 
-                <div style={{ color: "#555", fontSize: 14, marginTop: 4 }}>{item.reason}</div>
-                {item.needs_training && (
-                  <span style={{ color: "#b45309", fontSize: 13 }}>⚠️ スキル移管が必要</span>
-                )}
+                <p className="mt-2 text-sm text-gray-500">{item.reason}</p>
               </li>
             ))}
           </ul>
 
-          {proposal.status === "draft" ? (
-            <button onClick={approve} disabled={approving}
-              style={{ padding: "10px 20px", fontSize: 16, background: "#2563eb", color: "#fff", border: "none", borderRadius: 8 }}>
-              {approving ? "承認中..." : "この配置案を承認する"}
-            </button>
-          ) : (
-            <div style={{ padding: 12, background: "#dcfce7", borderRadius: 8, color: "#166534" }}>
-              ✅ この配置案は承認済みです
-            </div>
-          )}
+          <div className="mt-6">
+            {proposal.status === "draft" ? (
+              <button onClick={approve} disabled={approving}
+                className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                {approving ? "承認中..." : "この配置案を承認する"}
+              </button>
+            ) : (
+              <div className="rounded-lg bg-green-100 px-4 py-3 text-green-800">✅ この配置案は承認済みです</div>
+            )}
+          </div>
 
           {proposal.notifications && proposal.notifications.length > 0 && (
-            <section style={{ marginTop: 24 }}>
-              <h3>送信された通知</h3>
-              {proposal.notifications.map((n: any, i: number) => (
-                <div key={i} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 16, marginBottom: 12, whiteSpace: "pre-wrap" }}>
-                  <div><strong>宛先: {n.recipient_name}</strong></div>
-                  <div>{n.body}</div>
-                </div>
-              ))}
+            <section className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-900">送信された通知</h3>
+              <div className="mt-3 space-y-3">
+                {proposal.notifications.map((n: any, i: number) => (
+                  <div key={i} className="whitespace-pre-wrap rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="font-semibold text-gray-900">宛先: {n.recipient_name}</div>
+                    <div className="mt-1 text-sm text-gray-700">{n.body}</div>
+                  </div>
+                ))}
+              </div>
             </section>
           )}
         </section>
