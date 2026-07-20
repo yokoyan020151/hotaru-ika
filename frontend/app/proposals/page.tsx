@@ -9,6 +9,7 @@ export default function Proposals() {
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [targetId, setTargetId] = useState(TARGET_ID); // 診断対象。初期値は佐藤さん
   const [members, setMembers] = useState<any[]>([]);  // ★ メンバー一覧の箱
 
   // ★ 追加①：ページを開いた時、メンバー一覧を取ってくる
@@ -22,7 +23,12 @@ export default function Proposals() {
   const diagnose = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/members/${TARGET_ID}/diagnose`, { method: "POST" });
+      const res = await fetch(`${API}/api/members/${targetId}/diagnose`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "この人は診断できませんでした（担当業務が無いかもしれません）");
+        return;
+      }
       const data = await res.json();
       setProposal(data);
     } catch (e) {
@@ -76,9 +82,16 @@ export default function Proposals() {
       <h1>Takusu 配置提案（F-03 / F-04）</h1>
 
       <button onClick={diagnose} disabled={loading} style={{ padding: "8px 16px", fontSize: 16 }}>
-        {loading ? "診断中..." : "佐藤さんの配置案を作る"}
+        {loading ? "診断中..." : "配置案を作る"}
       </button>
-      
+      <div style={{ margin: "16px 0" }}>
+        対象メンバー：{" "}
+        <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          {members.map((m) => (
+            <option key={m.user_id} value={m.user_id}>{m.name}</option>
+          ))}
+        </select>
+      </div>
       <button onClick={resetDemo} disabled={resetting}
         style={{ marginLeft: 12, padding: "8px 16px", fontSize: 14 }}>
         {resetting ? "リセット中..." : "デモをリセット"}
