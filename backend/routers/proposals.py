@@ -6,6 +6,7 @@ from db import get_db
 from models.proposal import Proposal, ProposalItem, Notification
 from services.allocation import run_diagnosis
 from services.reason_llm import generate_reasons
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -128,5 +129,36 @@ def approve(proposal_id: str, db: Session = Depends(get_db)):
     except Exception:
         db.rollback()   # 途中で失敗したら、全部なかったことに
         raise HTTPException(500, "承認処理に失敗しました（変更は取り消されました）")
+
+    return build_response(db, proposal_id)
+
+@router.get("/api/members")
+def list_members(db: Session = Depends(get_db)):
+    """メンバー一覧（ドロップダウン用）。user_idと名前だけ返す"""
+    rows = db.execute(text("SELECT user_id, name FROM users")).mappings().all()
+    return [{"user_id": r["user_id"], "name": r["name"]} for r in rows]
+
+class ItemUpdate(BaseModel):
+    assignee_user_id: str   # フロントから届く「新しい担当のuser_id」
+
+
+@router.put("/api/proposals/{proposal_id}/items/{item_id}")
+def update_item(proposal_id: str, item_id: str, payload: ItemUpdate,
+                db: Session = Depends(get_db)):
+    """配置案の1業務の引き継ぎ先を、上司が手修正する"""
+    p = db.get(Proposal, proposal_id)
+    if not p:
+        raise HTTPException(404, "配置案が見つかりません")
+    if p.status != "draft":
+        raise HTTPException(409, "承認済みの配置案は修正できません")
+
+    item = db.get(ProposalItem, item_id)
+    if not item or item.proposal_id != proposal_id:
+        raise HTTPException(404, "明細が見つかりません")
+
+    item.assignee_user_id = payload.assignee_user_id
+    item.is_modified = True
+    item.reason = "上司の判断による変更"   # ★禁則：選ばれなかった人の事情は書かない
+    db.commit()
 
     return build_response(db, proposal_id)

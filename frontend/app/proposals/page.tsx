@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";  // ★ useEffect を追加
 
 const TARGET_ID = "038674dd-336a-4a6a-9068-b93dd2bfdfd2"; // 佐藤 美咲
 const API = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -8,8 +8,16 @@ export default function Proposals() {
   const [proposal, setProposal] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);  // ★ メンバー一覧の箱
 
-  // 配置案を作る（診断）
+  // ★ 追加①：ページを開いた時、メンバー一覧を取ってくる
+  useEffect(() => {
+    fetch(`${API}/api/members`)
+      .then((res) => res.json())
+      .then((data) => setMembers(data))
+      .catch(() => {});
+  }, []);
+
   const diagnose = async () => {
     setLoading(true);
     try {
@@ -23,14 +31,25 @@ export default function Proposals() {
     }
   };
 
-  // 配置案を承認する
+  // ★ 追加②：上司が担当を変える（手修正）
+  const changeAssignee = async (itemId: string, newUserId: string) => {
+    if (!proposal) return;
+    const res = await fetch(`${API}/api/proposals/${proposal.proposal_id}/items/${itemId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignee_user_id: newUserId }),
+    });
+    const data = await res.json();
+    setProposal(data);
+  };
+
   const approve = async () => {
     if (!proposal) return;
     setApproving(true);
     try {
       const res = await fetch(`${API}/api/proposals/${proposal.proposal_id}/approve`, { method: "POST" });
       const data = await res.json();
-      setProposal(data); // 承認後の応答（status=approved＋通知）で置き換え
+      setProposal(data);
     } catch (e) {
       alert("承認に失敗しました。");
     } finally {
@@ -55,8 +74,28 @@ export default function Proposals() {
             {proposal.items.map((item: any) => (
               <li key={item.item_id} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 16, marginBottom: 12 }}>
                 <strong>{item.task_name}</strong>
-                <div>担当 → {item.assignee_name}</div>
-                <div style={{ color: "#555", fontSize: 14 }}>{item.reason}</div>
+
+                {/* ★ 追加③：担当をドロップダウンに（承認前だけ変更可） */}
+                <div style={{ marginTop: 8 }}>
+                  担当 →{" "}
+                  {proposal.status === "draft" ? (
+                    <select
+                      value={item.assignee_user_id}
+                      onChange={(e) => changeAssignee(item.item_id, e.target.value)}
+                    >
+                      {members.map((m) => (
+                        <option key={m.user_id} value={m.user_id}>{m.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    item.assignee_name
+                  )}
+                  {item.is_modified && (
+                    <span style={{ color: "#2563eb", fontSize: 13, marginLeft: 8 }}>（上司修正）</span>
+                  )}
+                </div>
+
+                <div style={{ color: "#555", fontSize: 14, marginTop: 4 }}>{item.reason}</div>
                 {item.needs_training && (
                   <span style={{ color: "#b45309", fontSize: 13 }}>⚠️ スキル移管が必要</span>
                 )}
